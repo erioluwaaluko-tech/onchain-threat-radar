@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OnChain Threat Radar</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #0f0f1a 0%, #1a0a2e 100%);
+      border-bottom: 1px solid #1e1e3a;
+      padding: 1.2rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .logo { display: flex; align-items: center; gap: 12px; }
+
+    .logo-icon {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, #7c3aed, #06b6d4);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+
+    .logo-text h1 {
+      font-size: 1.2rem; font-weight: 700;
+      background: linear-gradient(90deg, #a78bfa, #06b6d4);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    .logo-text p { font-size: 0.72rem; color: #64748b; }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    .live-badge {
+      display: flex; align-items: center; gap: 6px;
+      background: #0f2a1a; border: 1px solid #16a34a;
+      border-radius: 99px; padding: 4px 12px;
+      font-size: 12px; color: #4ade80;
+    }
+
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #4ade80; animation: pulse 1.5s infinite;
+    }
+
+    .refresh-timer { font-size: 11px; color: #475569; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .search-bar {
+      padding: 1rem 2rem 0;
+      display: flex; gap: 10px;
+    }
+
+    .search-input {
+      flex: 1; padding: 10px 14px;
+      background: #0f0f1a; border: 1px solid #1e1e3a;
+      border-radius: 8px; color: #e2e8f0;
+      font-size: 13px; outline: none;
+      transition: border-color 0.2s;
+      max-width: 520px;
+    }
+
+    .search-input::placeholder { color: #475569; }
+    .search-input:focus { border-color: #7c3aed; }
+
+    .search-btn {
+      padding: 10px 18px; border-radius: 8px; border: none;
+      background: #7c3aed; color: white;
+      cursor: pointer; font-size: 13px; font-weight: 600;
+      transition: opacity 0.2s;
+    }
+
+    .search-btn:hover { opacity: 0.85; }
+
+    .controls {
+      padding: 1rem 2rem;
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      padding: 7px 18px; border-radius: 8px;
+      border: 1px solid #1e1e3a; background: #0f0f1a;
+      color: #94a3b8; cursor: pointer; font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, #7c3aed, #06b6d4);
+      border-color: transparent; color: white; font-weight: 500;
+    }
+
+    .filter-btn {
+      padding: 7px 14px; border-radius: 8px;
+      border: 1px solid #1e1e3a; background: #0f0f1a;
+      color: #94a3b8; cursor: pointer; font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    .filter-btn.active { border-color: #7c3aed; color: #a78bfa; background: #1a0f2e; }
+
+    .sort-select {
+      padding: 7px 12px; border-radius: 8px;
+      border: 1px solid #1e1e3a; background: #0f0f1a;
+      color: #94a3b8; font-size: 12px; cursor: pointer; outline: none;
+    }
+
+    .right-controls { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+    .scan-btn {
+      padding: 8px 20px; border-radius: 8px; border: none;
+      background: linear-gradient(135deg, #7c3aed, #06b6d4);
+      color: white; cursor: pointer; font-size: 13px; font-weight: 600;
+      transition: opacity 0.2s;
+    }
+
+    .scan-btn:hover { opacity: 0.85; }
+    .scan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .export-btn {
+      padding: 8px 14px; border-radius: 8px;
+      border: 1px solid #1e1e3a; background: #0f0f1a;
+      color: #94a3b8; cursor: pointer; font-size: 12px;
+      transition: all 0.2s; position: relative;
+    }
+
+    .export-btn:hover { border-color: #334155; color: #e2e8f0; }
+
+    .export-menu {
+      display: none; position: absolute; right: 0; top: calc(100% + 6px);
+      background: #0f0f1a; border: 1px solid #1e1e3a;
+      border-radius: 8px; overflow: hidden; z-index: 100; min-width: 130px;
+    }
+
+    .export-menu.open { display: block; }
+
+    .export-option {
+      padding: 9px 14px; font-size: 12px; color: #94a3b8;
+      cursor: pointer; transition: background 0.15s;
+    }
+
+    .export-option:hover { background: #1e1e3a; color: #e2e8f0; }
+
+    .stats-bar {
+      display: flex; gap: 10px; padding: 0 2rem 1rem; flex-wrap: wrap;
+    }
+
+    .stat-card {
+      background: #0f0f1a; border: 1px solid #1e1e3a;
+      border-radius: 10px; padding: 0.7rem 1.1rem; min-width: 120px;
+    }
+
+    .stat-label { font-size: 11px; color: #64748b; margin-bottom: 4px; }
+    .stat-value { font-size: 1.35rem; font-weight: 700; }
+    .stat-value.red { color: #f87171; }
+    .stat-value.yellow { color: #fbbf24; }
+    .stat-value.green { color: #4ade80; }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 0;
+      padding: 0 2rem 2rem;
+    }
+
+    @media (max-width: 900px) {
+      .main-layout { grid-template-columns: 1fr; }
+      .history-panel { display: none; }
+    }
+
+    .token-grid { display: flex; flex-direction: column; gap: 12px; padding-right: 16px; }
+
+    .token-card {
+      background: #0f0f1a; border: 1px solid #1e1e3a;
+      border-radius: 12px; padding: 1.1rem;
+      display: grid; grid-template-columns: auto 1fr auto;
+      gap: 1rem; align-items: start;
+      transition: border-color 0.2s;
+    }
+
+    .token-card:hover { border-color: #334155; }
+    .token-card.high { border-left: 3px solid #ef4444; }
+    .token-card.medium { border-left: 3px solid #f59e0b; }
+    .token-card.low { border-left: 3px solid #22c55e; }
+
+    .token-logo {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: linear-gradient(135deg, #1e1e3a, #2d1b69);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px; color: #a78bfa;
+      overflow: hidden; flex-shrink: 0;
+    }
+
+    .token-logo img { width: 100%; height: 100%; object-fit: cover; }
+
+    .token-info h3 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+
+    .token-address {
+      font-size: 11px; color: #475569;
+      font-family: monospace; margin-bottom: 6px;
+      cursor: pointer; transition: color 0.2s;
+      display: flex; align-items: center; gap: 5px;
+    }
+
+    .token-address:hover { color: #7c3aed; }
+
+    .copy-hint { font-size: 10px; color: #334155; }
+    .copied { color: #4ade80!important; }
+
+    .token-metrics {
+      display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px;
+    }
+
+    .metric { font-size: 12px; color: #64748b; }
+    .metric span { color: #cbd5e1; font-weight: 500; }
+
+    .flags { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+    .flag { font-size: 12px; color: #94a3b8; background: #0a0a0f; border-radius: 6px; padding: 3px 8px; }
+
+    .token-footer {
+      display: flex; align-items: center; gap: 10px; margin-top: 4px;
+    }
+
+    .birdeye-link {
+      font-size: 11px; color: #475569; text-decoration: none;
+      border: 1px solid #1e1e3a; border-radius: 6px;
+      padding: 3px 8px; transition: all 0.2s;
+    }
+
+    .birdeye-link:hover { color: #06b6d4; border-color: #06b6d4; }
+
+    .sparkline-wrap { width: 80px; height: 32px; }
+
+    .risk-badge { text-align: right; flex-shrink: 0; }
+
+    .risk-label {
+      font-size: 11px; font-weight: 600; padding: 3px 8px;
+      border-radius: 6px; margin-bottom: 5px; display: inline-block;
+    }
+
+    .risk-label.high { background: #2d0a0a; color: #f87171; border: 1px solid #7f1d1d; }
+    .risk-label.medium { background: #2d1f0a; color: #fbbf24; border: 1px solid #78350f; }
+    .risk-label.low { background: #0a2d1a; color: #4ade80; border: 1px solid #14532d; }
+
+    .risk-score { font-size: 1.9rem; font-weight: 800; line-height: 1; }
+    .risk-score.high { color: #f87171; }
+    .risk-score.medium { color: #fbbf24; }
+    .risk-score.low { color: #4ade80; }
+    .risk-max { font-size: 11px; color: #475569; }
+
+    .history-panel {
+      background: #0a0a0f; border-left: 1px solid #1e1e3a;
+      padding-left: 16px; position: sticky; top: 0;
+      max-height: 90vh; overflow-y: auto;
+    }
+
+    .history-panel h3 {
+      font-size: 12px; font-weight: 500; color: #64748b;
+      text-transform: uppercase; letter-spacing: 0.07em;
+      margin-bottom: 12px; padding-top: 4px;
+    }
+
+    .history-item {
+      padding: 8px 10px; border-radius: 8px;
+      background: #0f0f1a; border: 1px solid #1e1e3a;
+      margin-bottom: 8px; cursor: default;
+    }
+
+    .history-item-top {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: 2px;
+    }
+
+    .history-symbol { font-size: 13px; font-weight: 600; }
+    .history-score { font-size: 13px; font-weight: 700; }
+    .history-score.high { color: #f87171; }
+    .history-score.medium { color: #fbbf24; }
+    .history-time { font-size: 10px; color: #475569; }
+
+    .loading { text-align: center; padding: 3rem; color: #475569; }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid #1e1e3a; border-top-color: #7c3aed;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty { text-align: center; padding: 3rem; color: #475569; font-size: 14px; }
+
+    .price-up { color: #4ade80; }
+    .price-down { color: #f87171; }
+
+    .search-result-card {
+      background: #0f0f1a; border: 2px solid #7c3aed;
+      border-radius: 12px; padding: 1.1rem; margin-bottom: 16px;
+    }
+
+    .search-result-title {
+      font-size: 12px; color: #7c3aed; font-weight: 500;
+      margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+    }
+
+    footer {
+      text-align: center; padding: 1.5rem;
+      color: #334155; font-size: 12px;
+      border-top: 1px solid #0f0f1a;
+    }
+
+    .auto-badge {
+      font-size: 10px; color: #475569;
+      border: 1px solid #1e1e3a; border-radius: 99px;
+      padding: 2px 8px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🛡️</div>
+    <div class="logo-text">
+      <h1>OnChain Threat Radar</h1>
+      <p>Real-time rug pull & pump detection · Powered by Birdeye</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="refresh-timer" id="refreshTimer"></span>
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+  </div>
+</header>
+
+<div class="search-bar">
+  <input class="search-input" id="searchInput"
+    placeholder="Paste any Solana token address to instant-scan..." />
+  <button class="search-btn" onclick="searchToken()">🔍 Scan Token</button>
+</div>
+
+<div class="controls">
+  <button class="tab-btn active" onclick="switchTab('new', this)">🆕 New Listings</button>
+  <button class="tab-btn" onclick="switchTab('trending', this)">🔥 Trending</button>
+
+  <span style="width:1px;height:20px;background:#1e1e3a;margin:0 4px;"></span>
+
+  <button class="filter-btn" id="filterAll" onclick="setFilter('all', this)">All</button>
+  <button class="filter-btn" id="filterHigh" onclick="setFilter('high', this)">🔴 High Risk</button>
+  <button class="filter-btn" id="filterMed" onclick="setFilter('medium', this)">🟡 Medium</button>
+  <button class="filter-btn" id="filterLow" onclick="setFilter('low', this)">🟢 Low Risk</button>
+
+  <select class="sort-select" id="sortSelect" onchange="applyFilters()">
+    <option value="score">Sort: Risk Score</option>
+    <option value="liquidity">Sort: Liquidity</option>
+    <option value="volume">Sort: Volume</option>
+    <option value="holders">Sort: Holders</option>
+  </select>
+
+  <div class="right-controls">
+    <span class="auto-badge" id="autoBadge">Auto-refresh: ON</span>
+    <div style="position:relative;">
+      <button class="export-btn" onclick="toggleExportMenu()" id="exportBtn">⬇ Export</button>
+      <div class="export-menu" id="exportMenu">
+        <div class="export-option" onclick="exportData('json')">📄 Export JSON</div>
+        <div class="export-option" onclick="exportData('csv')">📊 Export CSV</div>
+      </div>
+    </div>
+    <button class="scan-btn" onclick="runScan()" id="scanBtn">⚡ Scan Now</button>
+  </div>
+</div>
+
+<div class="stats-bar" id="statsBar" style="display:none">
+  <div class="stat-card"><div class="stat-label">Scanned</div><div class="stat-value" id="statTotal">0</div></div>
+  <div class="stat-card"><div class="stat-label">High Risk</div><div class="stat-value red" id="statHigh">0</div></div>
+  <div class="stat-card"><div class="stat-label">Medium Risk</div><div class="stat-value yellow" id="statMed">0</div></div>
+  <div class="stat-card"><div class="stat-label">Low Risk</div><div class="stat-value green" id="statLow">0</div></div>
+  <div class="stat-card"><div class="stat-label">Avg Risk Score</div><div class="stat-value" id="statAvg">0</div></div>
+  <div class="stat-card"><div class="stat-label">Last Scan</div><div class="stat-value" style="font-size:0.9rem;padding-top:4px;" id="statTime">—</div></div>
+</div>
+
+<div class="main-layout">
+  <div>
+    <div id="searchResult"></div>
+    <div class="token-grid" id="tokenGrid">
+      <div class="empty">Click ⚡ Scan Now to start analyzing tokens</div>
+    </div>
+  </div>
+  <div class="history-panel">
+    <h3>🚨 Alert History</h3>
+    <div id="historyList"><div style="font-size:12px;color:#334155;">Alerts appear after first scan</div></div>
+  </div>
+</div>
+
+<footer>
+  Built with Birdeye Data API · OnChain Threat Radar · Sprint 2 · 2026
+</footer>
+
+<script>
+const API = 'http://127.0.0.1:8000';
+let currentTab = 'new';
+let currentFilter = 'all';
+let allTokens = [];
+let refreshInterval = null;
+let refreshCountdown = 60;
+const sparklineCharts = {};
+
+function switchTab(tab, btn) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  runScan();
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function applyFilters() {
+  const sort = document.getElementById('sortSelect').value;
+  let filtered = [...allTokens];
+
+  if (currentFilter !== 'all') {
+    filtered = filtered.filter(t => getRiskClass(t.risk_label) === currentFilter);
+  }
+
+  filtered.sort((a, b) => {
+    if (sort === 'score') return b.risk_score - a.risk_score;
+    if (sort === 'liquidity') return (b.liquidity||0) - (a.liquidity||0);
+    if (sort === 'volume') return (b.volume_24h||0) - (a.volume_24h||0);
+    if (sort === 'holders') return (b.holders||0) - (a.holders||0);
+    return 0;
+  });
+
+  renderTokenCards(filtered);
+}
+
+function getRiskClass(label) {
+  if (label.includes('HIGH')) return 'high';
+  if (label.includes('MEDIUM')) return 'medium';
+  return 'low';
+}
+
+function fmt(num) {
+  if (!num) return '$0';
+  if (num >= 1_000_000) return `$${(num/1_000_000).toFixed(2)}M`;
+  if (num >= 1_000) return `$${(num/1_000).toFixed(1)}K`;
+  return `$${num.toFixed(2)}`;
+}
+
+function fmtPrice(num) {
+  if (!num) return '$0';
+  if (num < 0.000001) return `$${num.toExponential(2)}`;
+  if (num < 0.01) return `$${num.toFixed(6)}`;
+  return `$${num.toFixed(4)}`;
+}
+
+function copyAddress(addr, el) {
+  navigator.clipboard.writeText(addr).then(() => {
+    el.classList.add('copied');
+    el.querySelector('.copy-hint').textContent = '✓ copied';
+    setTimeout(() => {
+      el.classList.remove('copied');
+      el.querySelector('.copy-hint').textContent = 'click to copy';
+    }, 1500);
+  });
+}
+
+function drawSparkline(canvasId, history) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !history || history.length < 2) return;
+  if (sparklineCharts[canvasId]) sparklineCharts[canvasId].destroy();
+  const scores = history.map(h => h.score);
+  const color = scores[scores.length-1] >= 70 ? '#f87171' : scores[scores.length-1] >= 40 ? '#fbbf24' : '#4ade80';
+  sparklineCharts[canvasId] = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: history.map(h => h.ts),
+      datasets: [{ data: scores, borderColor: color, borderWidth: 1.5,
+        pointRadius: 0, tension: 0.3, fill: false }]
+    },
+    options: {
+      responsive: false, animation: false,
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: { x: { display: false }, y: { display: false, min: 0, max: 100 } }
+    }
+  });
+}
+
+function buildTokenCard(t) {
+  const rc = getRiskClass(t.risk_label);
+  const priceChange = t.price_change_24h || 0;
+  const changeClass = priceChange >= 0 ? 'price-up' : 'price-down';
+  const changeStr = `${priceChange >= 0 ? '+' : ''}${priceChange.toFixed(1)}%`;
+  const canvasId = `spark-${t.address.slice(0,8)}`;
+  const logoHtml = t.logo
+    ? `<img src="${t.logo}" onerror="this.style.display='none';this.parentElement.textContent='${t.symbol?.[0]||'?'}'">`
+    : (t.symbol?.[0] || '?');
+  const hasHistory = t.score_history && t.score_history.length >= 2;
+
+  return `
+    <div class="token-card ${rc}">
+      <div class="token-logo">${logoHtml}</div>
+      <div class="token-info">
+        <h3>${t.symbol} <span style="font-weight:400;color:#64748b;font-size:12px">${t.name}</span></h3>
+        <div class="token-address" onclick="copyAddress('${t.address}', this)">
+          <span>${t.address.slice(0,20)}...${t.address.slice(-6)}</span>
+          <span class="copy-hint">click to copy</span>
+        </div>
+        <div class="token-metrics">
+          <div class="metric">Price <span>${fmtPrice(t.price)}</span></div>
+          <div class="metric">24h <span class="${changeClass}">${changeStr}</span></div>
+          <div class="metric">Liquidity <span>${fmt(t.liquidity)}</span></div>
+          <div class="metric">Mkt Cap <span>${fmt(t.market_cap)}</span></div>
+          <div class="metric">Vol 24h <span>${fmt(t.volume_24h)}</span></div>
+          <div class="metric">Holders <span>${t.holders || 0}</span></div>
+          <div class="metric">Wallets 24h <span>${t.unique_wallets_24h || 0}</span></div>
+        </div>
+        <div class="flags">${t.flags.map(f => `<div class="flag">${f}</div>`).join('')}</div>
+        <div class="token-footer">
+          <a class="birdeye-link" href="https://birdeye.so/token/${t.address}?chain=solana" target="_blank">View on Birdeye →</a>
+          ${hasHistory ? `<div class="sparkline-wrap"><canvas id="${canvasId}" width="80" height="32"></canvas></div>` : ''}
+        </div>
+      </div>
+      <div class="risk-badge">
+        <div class="risk-label ${rc}">${t.risk_label}</div>
+        <div class="risk-score ${rc}">${t.risk_score}</div>
+        <div class="risk-max">/100</div>
+      </div>
+    </div>`;
+}
+
+function renderTokenCards(tokens) {
+  const grid = document.getElementById('tokenGrid');
+  if (!tokens.length) {
+    grid.innerHTML = '<div class="empty">No tokens match the current filter.</div>';
+    return;
+  }
+  grid.innerHTML = tokens.map(buildTokenCard).join('');
+  tokens.forEach(t => {
+    const canvasId = `spark-${t.address.slice(0,8)}`;
+    if (t.score_history && t.score_history.length >= 2) drawSparkline(canvasId, t.score_history);
+  });
+}
+
+function renderTokens(tokens) {
+  allTokens = tokens;
+  let high = 0, med = 0, low = 0, totalScore = 0;
+  tokens.forEach(t => {
+    const rc = getRiskClass(t.risk_label);
+    if (rc === 'high') high++;
+    else if (rc === 'medium') med++;
+    else low++;
+    totalScore += t.risk_score;
+  });
+  document.getElementById('statsBar').style.display = 'flex';
+  document.getElementById('statTotal').textContent = tokens.length;
+  document.getElementById('statHigh').textContent = high;
+  document.getElementById('statMed').textContent = med;
+  document.getElementById('statLow').textContent = low;
+  document.getElementById('statAvg').textContent = Math.round(totalScore / tokens.length);
+  document.getElementById('statTime').textContent = new Date().toLocaleTimeString();
+  applyFilters();
+  loadHistory();
+}
+
+async function loadHistory() {
+  try {
+    const res = await fetch(API + '/api/history');
+    const data = await res.json();
+    const list = document.getElementById('historyList');
+    if (!data.tokens.length) {
+      list.innerHTML = '<div style="font-size:12px;color:#334155;">No alerts yet</div>';
+      return;
+    }
+    list.innerHTML = data.tokens.map(t => {
+      const rc = getRiskClass(t.risk_label);
+      return `
+        <div class="history-item">
+          <div class="history-item-top">
+            <span class="history-symbol">${t.symbol}</span>
+            <span class="history-score ${rc}">${t.risk_score}</span>
+          </div>
+          <div class="history-time">${t.scanned_at} · ${t.risk_label}</div>
+        </div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+async function searchToken() {
+  const input = document.getElementById('searchInput');
+  const addr = input.value.trim();
+  if (!addr || addr.length < 32) {
+    alert('Please enter a valid Solana token address (32+ characters)');
+    return;
+  }
+  const resultDiv = document.getElementById('searchResult');
+  resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Scanning token...</p></div>';
+  try {
+    const res = await fetch(`${API}/api/token/${addr}`);
+    const t = await res.json();
+    const rc = getRiskClass(t.risk_label);
+    resultDiv.innerHTML = `
+      <div class="search-result-card">
+        <div class="search-result-title">🔍 Search Result</div>
+        ${buildTokenCard(t)}
+      </div>`;
+    const canvasId = `spark-${t.address.slice(0,8)}`;
+    if (t.score_history && t.score_history.length >= 2) drawSparkline(canvasId, t.score_history);
+  } catch(e) {
+    resultDiv.innerHTML = `<div class="empty">❌ Could not fetch token. Check the address and try again.</div>`;
+  }
+}
+
+document.getElementById('searchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') searchToken();
+});
+
+function toggleExportMenu() {
+  document.getElementById('exportMenu').classList.toggle('open');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.export-btn') && !e.target.closest('.export-menu')) {
+    document.getElementById('exportMenu').classList.remove('open');
+  }
+});
+
+async function exportData(format) {
+  document.getElementById('exportMenu').classList.remove('open');
+  if (format === 'csv') {
+    window.open(`${API}/api/export?format=csv&limit=10`, '_blank');
+    return;
+  }
+  if (format === 'json') {
+    const blob = new Blob([JSON.stringify({tokens: allTokens}, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = 'threat-radar-scan.json'; a.click();
+    URL.revokeObjectURL(url);
+  }
+}
+
+function startAutoRefresh() {
+  refreshCountdown = 60;
+  clearInterval(refreshInterval);
+  refreshInterval = setInterval(async () => {
+    refreshCountdown--;
+    document.getElementById('refreshTimer').textContent = `Next scan in ${refreshCountdown}s`;
+    if (refreshCountdown <= 0) {
+      refreshCountdown = 60;
+      await runScan(true);
+    }
+  }, 1000);
+}
+
+async function runScan(silent = false) {
+  const btn = document.getElementById('scanBtn');
+  const grid = document.getElementById('tokenGrid');
+  btn.disabled = true;
+  btn.textContent = '⏳ Scanning...';
+  if (!silent) {
+    grid.innerHTML = '<div class="loading"><div class="spinner"></div><p>Fetching and scoring tokens...<br><small style="color:#334155">This takes ~15s due to API rate limits</small></p></div>';
+  }
+  try {
+    const endpoint = currentTab === 'new' ? '/api/scan?limit=15' : '/api/trending?limit=15';
+    const res = await fetch(API + endpoint);
+    const data = await res.json();
+    renderTokens(data.tokens || []);
+    startAutoRefresh();
+  } catch(err) {
+    if (!silent) grid.innerHTML = `<div class="empty">❌ Error: ${err.message}<br>Make sure the backend server is running.</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⚡ Scan Now';
+  }
+}
+</script>
+</body>
+</html>
