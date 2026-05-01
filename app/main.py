@@ -6,7 +6,8 @@ from collections import defaultdict, deque
 import time
 import csv
 import io
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, HTMLResponse
+from pathlib import Path
 
 app = FastAPI(
     title="OnChain Threat Radar",
@@ -52,12 +53,12 @@ def enrich_token(token: dict) -> dict:
         "name": name,
         "logo": logo,
         "listed_at": listed_at,
-        "liquidity": liquidity,
+        "liquidity": overview.get("liquidity", liquidity) or liquidity,
         "price": overview.get("price", 0),
         "market_cap": overview.get("mc", 0),
         "volume_24h": overview.get("v24hUSD", 0),
-        "price_change_24h": overview.get("priceChange24hPercent", 0),
-        "holders": overview.get("holder", 0),
+        "price_change_24h": overview.get("priceChange24hPercent", 0) or overview.get("v24hChangePercent", 0),
+        "holders": overview.get("holder", 0) or overview.get("holders", 0),
         "unique_wallets_24h": overview.get("uniqueWallet24h", 0),
         "trades_24h": overview.get("trade24h", 0),
         "risk_score": result["score"],
@@ -65,7 +66,6 @@ def enrich_token(token: dict) -> dict:
         "flags": result["flags"],
         "score_history": list(score_history[addr]),
     }
-
     # Add to scan log if medium or high risk
     if result["score"] >= 40:
         scan_log.appendleft({
@@ -81,8 +81,10 @@ def enrich_token(token: dict) -> dict:
 
 @app.get("/")
 def root():
+    html_path = Path(__file__).parent.parent / "dashboard.html"
+    if html_path.exists():
+        return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
     return {"status": "online", "message": "OnChain Threat Radar is running"}
-
 
 @app.get("/api/scan")
 def scan_new_listings(limit: int = 10):
