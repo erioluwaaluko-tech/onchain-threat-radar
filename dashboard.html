@@ -577,7 +577,7 @@ function renderTokens(tokens) {
   document.getElementById('statHigh').textContent = high;
   document.getElementById('statMed').textContent = med;
   document.getElementById('statLow').textContent = low;
-  document.getElementById('statAvg').textContent = Math.round(totalScore / tokens.length);
+  document.getElementById('statAvg').textContent = tokens.length ? Math.round(totalScore / tokens.length) : 0;
   document.getElementById('statTime').textContent = new Date().toLocaleTimeString();
   applyFilters();
   loadHistory();
