@@ -31,7 +31,7 @@ def score_token(overview: dict) -> dict:
             flags.append(f"⚠️ Volume is {ratio:.1f}x market cap — unusual activity")
 
     # --- PRICE CHANGE SPIKE ---
-    price_change = overview.get("priceChange24hPercent", 0) or 0
+    price_change = overview.get("priceChange24hPercent", 0) or overview.get("v24hChangePercent", 0) or 0
     if price_change > 500:
         score += 20
         flags.append(f"🚨 Price up {price_change:.0f}% in 24h — possible coordinated pump")
